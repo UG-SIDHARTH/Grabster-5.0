@@ -11,9 +11,9 @@ const localYtDlpWin = path.resolve(__dirname, '..', 'yt-dlp.exe');
 const localYtDlpUnix = path.resolve(__dirname, '..', 'yt-dlp');
 let ytDlpBinary = 'yt-dlp';
 
-if (fs.existsSync(localYtDlpWin)) {
+if (process.platform === 'win32' && fs.existsSync(localYtDlpWin)) {
   ytDlpBinary = localYtDlpWin;
-} else if (fs.existsSync(localYtDlpUnix)) {
+} else if (process.platform !== 'win32' && fs.existsSync(localYtDlpUnix)) {
   ytDlpBinary = localYtDlpUnix;
 }
 
@@ -23,13 +23,14 @@ const localFfmpegUnix = path.resolve(__dirname, '..', 'ffmpeg');
 const localFfmpegFolder = path.resolve(__dirname, '..', 'ffmpeg');
 let ffmpegLocation = null;
 
-if (fs.existsSync(localFfmpegWin)) {
+if (process.platform === 'win32' && fs.existsSync(localFfmpegWin)) {
   ffmpegLocation = path.dirname(localFfmpegWin);
-} else if (fs.existsSync(localFfmpegUnix)) {
+} else if (process.platform !== 'win32' && fs.existsSync(localFfmpegUnix)) {
   ffmpegLocation = path.dirname(localFfmpegUnix);
 } else if (fs.existsSync(localFfmpegFolder)) {
   ffmpegLocation = localFfmpegFolder;
 }
+
 
 // Ensure folders exist
 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
