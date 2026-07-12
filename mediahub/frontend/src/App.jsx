@@ -5,6 +5,19 @@ import MetadataCard from './components/MetadataCard';
 import HistoryList from './components/HistoryList';
 import { ToastContainer } from './components/Toast';
 
+// Strips credentials from window origin to prevent TypeError: Failed to execute 'fetch' on 'Window'
+// when running behind basic authentication or with credentials in the URL
+const getApiUrl = (apiPath) => {
+  try {
+    const url = new URL(apiPath, window.location.href);
+    url.username = '';
+    url.password = '';
+    return url.toString();
+  } catch (err) {
+    return apiPath;
+  }
+};
+
 export default function App() {
   const [url, setUrl] = useState('');
   const [metadata, setMetadata] = useState(null);
@@ -27,7 +40,7 @@ export default function App() {
   // Fetch History from API
   const fetchHistory = async () => {
     try {
-      const res = await fetch('/api/history');
+      const res = await fetch(getApiUrl('/api/history'));
       const data = await res.json();
       if (data.success) {
         setHistory(data.history || []);
@@ -51,7 +64,7 @@ export default function App() {
     setDownloadSuccess(false);
 
     try {
-      const res = await fetch('/api/info', {
+      const res = await fetch(getApiUrl('/api/info'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim() })
@@ -85,7 +98,7 @@ export default function App() {
     addToast('Adding job to queue... Starting download process.', 'info', 4000);
 
     try {
-      const res = await fetch('/api/download', {
+      const res = await fetch(getApiUrl('/api/download'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim(), format })
@@ -103,7 +116,7 @@ export default function App() {
         
         // Trigger file download in browser
         const link = document.createElement('a');
-        link.href = data.downloadUrl;
+        link.href = getApiUrl(data.downloadUrl);
         link.setAttribute('download', '');
         document.body.appendChild(link);
         link.click();
