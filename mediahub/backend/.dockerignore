@@ -1,0 +1,11 @@
+node_modules
+downloads
+temp
+cookies
+history.json
+.env
+.DS_Store
+.git
+.gitignore
+.dockerignore
+README.md
