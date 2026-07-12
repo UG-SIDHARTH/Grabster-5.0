@@ -6,6 +6,31 @@ const cookiesPath = path.resolve(__dirname, '..', 'cookies', 'cookies.txt');
 const tempDir = path.resolve(__dirname, '..', 'temp');
 const downloadsDir = path.resolve(__dirname, '..', 'downloads');
 
+// Local binary fallbacks to make local testing robust on Windows/Linux without editing PATH
+const localYtDlpWin = path.resolve(__dirname, '..', 'yt-dlp.exe');
+const localYtDlpUnix = path.resolve(__dirname, '..', 'yt-dlp');
+let ytDlpBinary = 'yt-dlp';
+
+if (fs.existsSync(localYtDlpWin)) {
+  ytDlpBinary = localYtDlpWin;
+} else if (fs.existsSync(localYtDlpUnix)) {
+  ytDlpBinary = localYtDlpUnix;
+}
+
+// Local ffmpeg path checking
+const localFfmpegWin = path.resolve(__dirname, '..', 'ffmpeg.exe');
+const localFfmpegUnix = path.resolve(__dirname, '..', 'ffmpeg');
+const localFfmpegFolder = path.resolve(__dirname, '..', 'ffmpeg');
+let ffmpegLocation = null;
+
+if (fs.existsSync(localFfmpegWin)) {
+  ffmpegLocation = path.dirname(localFfmpegWin);
+} else if (fs.existsSync(localFfmpegUnix)) {
+  ffmpegLocation = path.dirname(localFfmpegUnix);
+} else if (fs.existsSync(localFfmpegFolder)) {
+  ffmpegLocation = localFfmpegFolder;
+}
+
 // Ensure folders exist
 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
@@ -48,7 +73,12 @@ function executeYtDlp(args) {
       defaultArgs.push('--cookies', cookiesPath);
     }
     
-    const child = spawn('yt-dlp', [...defaultArgs, ...args]);
+    // Add local ffmpeg location if present
+    if (ffmpegLocation) {
+      defaultArgs.push('--ffmpeg-location', ffmpegLocation);
+    }
+    
+    const child = spawn(ytDlpBinary, [...defaultArgs, ...args]);
     
     let stdout = '';
     let stderr = '';
@@ -142,11 +172,11 @@ async function downloadMedia(url, format, fileUuid) {
   let ext = 'mp4';
   
   if (format === 'mp4-360') {
-    args.push('-f', 'bestvideo[height<=360]+bestaudio/best[height<=360]');
+    args.push('-f', 'bestvideo[height<=360]+bestaudio/best[height<=360]/best');
     args.push('--merge-output-format', 'mp4');
     ext = 'mp4';
   } else if (format === 'mp4-720') {
-    args.push('-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]');
+    args.push('-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best');
     args.push('--merge-output-format', 'mp4');
     ext = 'mp4';
   } else if (format === 'mp4-best') {
