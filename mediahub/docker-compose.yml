@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Node.js backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mediahub-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - downloads:/app/downloads
+      - cookies:/app/cookies
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # React Vite frontend container (proxied by Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mediahub-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  downloads:
+    name: mediahub_downloads
+  cookies:
+    name: mediahub_cookies
