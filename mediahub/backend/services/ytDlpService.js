@@ -218,8 +218,9 @@ async function downloadMedia(url, format, fileUuid) {
     const finalFilename = `${fileUuid}${path.extname(downloadedFile)}`;
     const finalFilePath = path.join(downloadsDir, finalFilename);
 
-    // Stream download directly to disk by renaming/moving it
-    fs.renameSync(tempFilePath, finalFilePath);
+    // Stream download directly to disk by copying and deleting the temp file (avoiding cross-device link EXDEV errors)
+    fs.copyFileSync(tempFilePath, finalFilePath);
+    fs.unlinkSync(tempFilePath);
 
     // Get final file details
     const stats = fs.statSync(finalFilePath);
