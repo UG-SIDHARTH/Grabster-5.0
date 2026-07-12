@@ -11,8 +11,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - downloads:/app/downloads
-      - cookies:/app/cookies
+      - ./backend/downloads:/app/downloads
+      - ./backend/cookies:/app/cookies
     environment:
       - NODE_ENV=production
       - PORT=5000
@@ -40,8 +40,3 @@ services:
         max-size: "10m"
         max-file: "3"
 
-volumes:
-  downloads:
-    name: mediahub_downloads
-  cookies:
-    name: mediahub_cookies
