@@ -30,7 +30,7 @@ services:
     container_name: mediahub-frontend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8080:80"
     depends_on:
       backend:
         condition: service_healthy
