@@ -250,10 +250,29 @@ async function downloadMedia(url, format, fileUuid) {
         throw new Error('Photo metadata not found in cache.');
       }
       const imageUrl = cached.data.thumbnail;
-      
+      let referer = 'https://www.google.com/';
+      try {
+        const parsedImg = new URL(imageUrl);
+        if (parsedImg.hostname.includes('cdninstagram.com') || parsedImg.hostname.includes('instagram.com')) {
+          referer = 'https://www.instagram.com/';
+        } else if (parsedImg.hostname.includes('twimg.com') || parsedImg.hostname.includes('twitter.com') || parsedImg.hostname.includes('x.com')) {
+          referer = 'https://x.com/';
+        } else if (parsedImg.hostname.includes('fbcdn.net') || parsedImg.hostname.includes('fbsbx.com') || parsedImg.hostname.includes('facebook.com')) {
+          referer = 'https://www.facebook.com/';
+        } else if (parsedImg.hostname.includes('pinimg.com') || parsedImg.hostname.includes('pinterest.com')) {
+          referer = 'https://www.pinterest.com/';
+        }
+      } catch (e) {}
+
       const response = await fetch(imageUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': referer,
+          'Sec-Fetch-Dest': 'image',
+          'Sec-Fetch-Mode': 'no-cors',
+          'Sec-Fetch-Site': 'cross-site'
         }
       });
       
