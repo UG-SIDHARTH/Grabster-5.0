@@ -192,7 +192,7 @@ export default function App() {
             </span> Downloads
           </h2>
           <p className="text-sm md:text-base text-slate-400">
-            Download files directly to your VPS. Stream audio and video from YouTube, X, TikTok, Facebook, and Instagram automatically without ads or trackers.
+            Stream audio, video, and photos from YouTube, Pinterest, X, TikTok, Facebook, and Instagram automatically without ads or trackers.
           </p>
           
           {/* Quick Platform Tags */}
