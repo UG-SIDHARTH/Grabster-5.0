@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Download, Music, Video, Calendar, User, Clock, Loader2, CheckCircle } from 'lucide-react';
+import { Play, Download, Music, Video, Calendar, User, Clock, Loader2, CheckCircle, Image } from 'lucide-react';
 
 // Format selection mappings
 const FORMAT_LABELS = {
@@ -25,7 +25,7 @@ function formatDuration(seconds) {
 }
 
 export default function MetadataCard({ metadata, onDownload, isDownloading, downloadSuccess }) {
-  const [activeTab, setActiveTab] = useState('video'); // 'video' | 'audio'
+  const [activeTab, setActiveTab] = useState('video'); // 'video' | 'audio' | 'image'
   const [selectedFormat, setSelectedFormat] = useState('mp4-720'); // default select
 
   const isPhoto = metadata.isPhoto;
@@ -35,6 +35,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
       setSelectedFormat('photo');
     } else {
       setSelectedFormat('mp4-720');
+      setActiveTab('video');
     }
   }, [metadata]);
 
@@ -43,8 +44,10 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
     setActiveTab(tab);
     if (tab === 'video') {
       setSelectedFormat('mp4-720');
-    } else {
+    } else if (tab === 'audio') {
       setSelectedFormat('mp3-320');
+    } else if (tab === 'image') {
+      setSelectedFormat('photo');
     }
   };
 
@@ -54,6 +57,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
 
   const videoFormats = ['mp4-360', 'mp4-720', 'mp4-best'];
   const audioFormats = ['mp3-128', 'mp3-320', 'm4a'];
+  const imageFormats = ['photo'];
 
   return (
     <div className="w-full max-w-4xl mx-auto glass-panel rounded-3xl overflow-hidden shadow-2xl transition-all duration-500 animate-fade-in border border-white/5">
@@ -123,7 +127,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex bg-slate-950/80 p-1 rounded-xl border border-white/5 w-full max-w-[280px]">
+              <div className="flex bg-slate-950/80 p-1 rounded-xl border border-white/5 w-full max-w-[360px]">
                 <button
                   onClick={() => handleTabChange('video')}
                   disabled={isDownloading}
@@ -148,18 +152,30 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
                   <Music className="w-4 h-4" />
                   <span>Audio</span>
                 </button>
+                <button
+                  onClick={() => handleTabChange('image')}
+                  disabled={isDownloading}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    activeTab === 'image'
+                      ? 'bg-accent-cyan/10 text-accent-cyan font-bold border border-accent-cyan/20'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Image className="w-4 h-4" />
+                  <span>Image</span>
+                </button>
               </div>
 
               {/* Quality buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {(activeTab === 'video' ? videoFormats : audioFormats).map((fmt) => (
+                {(activeTab === 'video' ? videoFormats : activeTab === 'audio' ? audioFormats : imageFormats).map((fmt) => (
                   <button
                     key={fmt}
                     onClick={() => setSelectedFormat(fmt)}
                     disabled={isDownloading}
                     className={`py-3 px-4 rounded-xl text-xs font-semibold border transition-all duration-200 text-left flex flex-col justify-center ${
                       selectedFormat === fmt
-                        ? activeTab === 'video'
+                        ? activeTab === 'video' || activeTab === 'image'
                           ? 'border-accent-cyan bg-accent-cyan/5 text-accent-cyan shadow-sm shadow-accent-cyan/10'
                           : 'border-accent-purple bg-accent-purple/5 text-accent-purple shadow-sm shadow-accent-purple/10'
                         : 'border-white/5 bg-slate-900/30 hover:bg-slate-900/60 text-slate-400 hover:text-slate-200'
@@ -181,7 +197,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-orbitron font-bold text-base text-black transition-all duration-300 ${
                 isDownloading
                   ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed'
-                  : isPhoto || activeTab === 'video'
+                  : isPhoto || activeTab === 'video' || activeTab === 'image'
                     ? 'neon-button-cyan'
                     : 'neon-button-purple'
               }`}
@@ -189,7 +205,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               {isDownloading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="animate-pulse">{isPhoto ? 'Downloading Image...' : 'Downloading & Converting...'}</span>
+                  <span className="animate-pulse">{isPhoto || activeTab === 'image' ? 'Downloading Image...' : 'Downloading & Converting...'}</span>
                 </>
               ) : downloadSuccess ? (
                 <>
@@ -199,12 +215,12 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               ) : (
                 <>
                   <Download className="w-5 h-5" />
-                  <span>{isPhoto ? 'Download Photo' : 'Start Download'}</span>
+                  <span>{isPhoto || activeTab === 'image' ? 'Download Photo' : 'Start Download'}</span>
                 </>
               )}
             </button>
             <p className="text-[10px] text-center text-slate-500 mt-2.5">
-              {isPhoto
+              {isPhoto || activeTab === 'image'
                 ? 'Downloads the original high-resolution photo file directly to your workspace.'
                 : 'Downloaded media streams directly to disk. The server will safely convert audio to MP3 using FFmpeg if requested.'}
             </p>

@@ -70,31 +70,31 @@ function extractMetaTag(html, propertyName) {
   return null;
 }
 
-async function fetchPinterestPhotoMetadata(url) {
+async function fetchPhotoMetadataFallback(url, platformName) {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
       }
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch Pinterest page (${response.status})`);
+      throw new Error(`Failed to fetch ${platformName} page (${response.status})`);
     }
     
     const html = await response.text();
     const imageUrl = extractMetaTag(html, 'og:image');
     if (!imageUrl) {
-      throw new Error('No image URL found in Pinterest metadata.');
+      throw new Error(`No image URL found in ${platformName} metadata.`);
     }
     
-    const title = extractMetaTag(html, 'og:title') || 'Pinterest Photo';
+    const title = extractMetaTag(html, 'og:title') || `${platformName} Photo`;
     
     const metadata = {
       title: title.trim(),
       thumbnail: imageUrl,
       duration: 0,
-      uploader: 'Pinterest',
+      uploader: platformName,
       uploadDate: 'Unknown',
       originalUrl: url,
       isPhoto: true
@@ -102,8 +102,8 @@ async function fetchPinterestPhotoMetadata(url) {
     
     return metadata;
   } catch (error) {
-    console.error('Pinterest photo extraction failed:', error);
-    throw new Error(error.message || 'Failed to extract Pinterest photo details.');
+    console.error(`${platformName} photo extraction failed:`, error);
+    throw new Error(error.message || `Failed to extract ${platformName} photo details.`);
   }
 }
 
@@ -162,13 +162,22 @@ async function fetchMetadata(url) {
   }
 
   const isPinterest = url.includes('pinterest.com/pin/') || url.includes('pin.it/');
+  const isTwitter = url.includes('twitter.com/') || url.includes('x.com/');
+  const isFacebook = url.includes('facebook.com/');
+  const isInstagram = url.includes('instagram.com/');
+
+  let platformName = null;
+  if (isPinterest) platformName = 'Pinterest';
+  else if (isTwitter) platformName = 'Twitter';
+  else if (isFacebook) platformName = 'Facebook';
+  else if (isInstagram) platformName = 'Instagram';
 
   try {
     const result = await executeYtDlp(['--dump-json', url]);
     
     if (result.code !== 0) {
-      if (isPinterest) {
-        const photoMetadata = await fetchPinterestPhotoMetadata(url);
+      if (platformName) {
+        const photoMetadata = await fetchPhotoMetadataFallback(url, platformName);
         metadataCache.set(url, {
           data: photoMetadata,
           expiresAt: Date.now() + CACHE_TTL
@@ -206,9 +215,9 @@ async function fetchMetadata(url) {
 
     return metadata;
   } catch (error) {
-    if (isPinterest) {
+    if (platformName) {
       try {
-        const photoMetadata = await fetchPinterestPhotoMetadata(url);
+        const photoMetadata = await fetchPhotoMetadataFallback(url, platformName);
         metadataCache.set(url, {
           data: photoMetadata,
           expiresAt: Date.now() + CACHE_TTL
