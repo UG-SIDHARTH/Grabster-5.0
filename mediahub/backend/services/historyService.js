@@ -90,11 +90,22 @@ function updateHistoryItem(id, updates) {
   }
 }
 
+/**
+ * Removes an entry from the history list by filename.
+ * @param {string} filename - Filename of the item to remove
+ */
+function removeFromHistory(filename) {
+  const history = getHistory();
+  const filtered = history.filter(item => item.filename !== filename);
+  saveHistory(filtered);
+}
+
 // Initialise on load
 initHistory();
 
 module.exports = {
   getHistory,
   addToHistory,
-  updateHistoryItem
+  updateHistoryItem,
+  removeFromHistory
 };

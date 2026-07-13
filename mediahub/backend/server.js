@@ -98,6 +98,80 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Periodic cleanup scheduler: Runs every 1 minute to check for files older than 5 minutes
+const CLEANUP_INTERVAL = 60 * 1000; // Check every 1 minute
+const MAX_FILE_AGE = 5 * 60 * 1000; // 5 minutes
+
+setInterval(() => {
+  const now = Date.now();
+  
+  // Clean up downloads directory
+  if (fs.existsSync(downloadsDir)) {
+    fs.readdir(downloadsDir, (err, files) => {
+      if (err) {
+        console.error('[Cleanup] Failed to read downloads directory:', err);
+        return;
+      }
+      
+      files.forEach(file => {
+        if (file === '.gitkeep') return;
+        const filePath = path.join(downloadsDir, file);
+        fs.stat(filePath, (statErr, stats) => {
+          if (statErr) {
+            console.error(`[Cleanup] Failed to stat file ${file}:`, statErr);
+            return;
+          }
+          
+          const age = now - stats.mtimeMs;
+          if (age > MAX_FILE_AGE) {
+            fs.unlink(filePath, unlinkErr => {
+              if (unlinkErr) {
+                console.error(`[Cleanup] Failed to delete expired download ${file}:`, unlinkErr);
+              } else {
+                console.log(`[Cleanup] Deleted expired download: ${file} (Age: ${Math.round(age / 1000)}s)`);
+                // Also clean up database entry
+                historyService.removeFromHistory(file);
+              }
+            });
+          }
+        });
+      });
+    });
+  }
+  
+  // Clean up temp directory
+  if (fs.existsSync(tempDir)) {
+    fs.readdir(tempDir, (err, files) => {
+      if (err) {
+        console.error('[Cleanup] Failed to read temp directory:', err);
+        return;
+      }
+      
+      files.forEach(file => {
+        if (file === '.gitkeep') return;
+        const filePath = path.join(tempDir, file);
+        fs.stat(filePath, (statErr, stats) => {
+          if (statErr) {
+            console.error(`[Cleanup] Failed to stat temp file ${file}:`, statErr);
+            return;
+          }
+          
+          const age = now - stats.mtimeMs;
+          if (age > MAX_FILE_AGE) {
+            fs.unlink(filePath, unlinkErr => {
+              if (unlinkErr) {
+                console.error(`[Cleanup] Failed to delete temp file ${file}:`, unlinkErr);
+              } else {
+                console.log(`[Cleanup] Deleted temp file: ${file} (Age: ${Math.round(age / 1000)}s)`);
+              }
+            });
+          }
+        });
+      });
+    });
+  }
+}, CLEANUP_INTERVAL);
+
 app.listen(PORT, () => {
   console.log(`Novara backend listening at http://localhost:${PORT}`);
 });
