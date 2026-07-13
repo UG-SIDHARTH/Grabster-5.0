@@ -42,7 +42,7 @@ export default function UrlInput({ url, setUrl, onFetch, isLoading, onClear }) {
         <input
           ref={inputRef}
           type="url"
-          placeholder="Paste video or audio link here (YouTube, X, TikTok, Facebook...)"
+          placeholder="Paste video or audio link here (YouTube, Pinterest, X, TikTok, Facebook...)"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           disabled={isLoading}

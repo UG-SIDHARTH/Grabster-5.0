@@ -67,7 +67,7 @@ function isAuthRequiredError(errorStr) {
  */
 function executeYtDlp(args) {
   return new Promise((resolve, reject) => {
-    const defaultArgs = ['--no-warnings', '--no-playlist'];
+    const defaultArgs = ['--no-warnings', '--no-playlist', '--js-runtimes', 'node'];
     
     // Add cookies option if cookies file exists
     if (fs.existsSync(cookiesPath)) {

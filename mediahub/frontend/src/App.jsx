@@ -184,6 +184,7 @@ export default function App() {
           {/* Quick Platform Tags */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">YouTube</span>
+            <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">Pinterest</span>
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">Facebook</span>
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">Instagram</span>
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">TikTok</span>
