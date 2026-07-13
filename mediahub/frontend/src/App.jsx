@@ -192,7 +192,7 @@ export default function App() {
             </span> Downloads
           </h2>
           <p className="text-sm md:text-base text-slate-400">
-            Stream audio, video, and photos from YouTube, Pinterest, X, TikTok, Facebook, and Instagram automatically without ads or trackers.
+            Stream audio, video, and photos from YouTube, Pinterest, X, Facebook, and Instagram automatically without ads or trackers.
           </p>
           
           {/* Quick Platform Tags */}
@@ -201,7 +201,6 @@ export default function App() {
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">Pinterest</span>
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">Facebook</span>
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">Instagram</span>
-            <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">TikTok</span>
             <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-md">X (Twitter)</span>
           </div>
         </section>
