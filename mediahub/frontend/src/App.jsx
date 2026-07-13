@@ -170,7 +170,7 @@ export default function App() {
           <div className="flex items-center gap-2.5">
             <span className="text-xl">⚡</span>
             <h1 className="font-orbitron font-extrabold text-lg md:text-xl tracking-wider bg-gradient-to-r from-accent-cyan via-white to-accent-pink bg-clip-text text-transparent">
-              MEDIAHUB <span className="font-light text-slate-400">DOWNLOADER</span>
+              NOVARA
             </h1>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold bg-slate-900/80 px-3 py-1.5 rounded-full border border-white/5">
@@ -250,7 +250,7 @@ export default function App() {
             <span>Built for high performance media processing</span>
           </div>
           <div>
-            <span>MediaHub Downloader &copy; {new Date().getFullYear()}</span>
+            <span>Novara &copy; {new Date().getFullYear()}</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">

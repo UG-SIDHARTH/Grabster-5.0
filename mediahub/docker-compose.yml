@@ -6,7 +6,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: mediahub-backend
+    container_name: novara-backend
     restart: unless-stopped
     ports:
       - "5000:5000"
@@ -27,7 +27,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: mediahub-frontend
+    container_name: novara-frontend
     restart: unless-stopped
     ports:
       - "8090:80"

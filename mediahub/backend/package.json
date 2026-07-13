@@ -1,7 +1,7 @@
 {
-  "name": "mediahub-backend",
+  "name": "novara-backend",
   "version": "1.0.0",
-  "description": "Backend for MediaHub Downloader",
+  "description": "Backend for Novara",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
