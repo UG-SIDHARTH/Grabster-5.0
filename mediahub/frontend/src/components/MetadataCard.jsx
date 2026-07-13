@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Download, Music, Video, Calendar, User, Clock, Loader2, CheckCircle } from 'lucide-react';
 
 // Format selection mappings
@@ -8,7 +8,8 @@ const FORMAT_LABELS = {
   'mp4-best': 'Best Available Video',
   'mp3-128': 'MP3 128 kbps',
   'mp3-320': 'MP3 320 kbps',
-  'm4a': 'M4A Standard Audio'
+  'm4a': 'M4A Standard Audio',
+  'photo': 'Original Quality Photo'
 };
 
 function formatDuration(seconds) {
@@ -27,7 +28,18 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
   const [activeTab, setActiveTab] = useState('video'); // 'video' | 'audio'
   const [selectedFormat, setSelectedFormat] = useState('mp4-720'); // default select
 
+  const isPhoto = metadata.isPhoto;
+
+  useEffect(() => {
+    if (isPhoto) {
+      setSelectedFormat('photo');
+    } else {
+      setSelectedFormat('mp4-720');
+    }
+  }, [metadata]);
+
   const handleTabChange = (tab) => {
+    if (isPhoto) return;
     setActiveTab(tab);
     if (tab === 'video') {
       setSelectedFormat('mp4-720');
@@ -94,55 +106,72 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
           </div>
 
           {/* Formats and Segment Selection */}
-          <div className="space-y-4">
-            <div className="flex bg-slate-950/80 p-1 rounded-xl border border-white/5 w-full max-w-[280px]">
-              <button
-                onClick={() => handleTabChange('video')}
-                disabled={isDownloading}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  activeTab === 'video'
-                    ? 'bg-accent-cyan/10 text-accent-cyan font-bold border border-accent-cyan/20'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Video className="w-4 h-4" />
-                <span>Video</span>
-              </button>
-              <button
-                onClick={() => handleTabChange('audio')}
-                disabled={isDownloading}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                  activeTab === 'audio'
-                    ? 'bg-accent-purple/10 text-accent-purple font-bold border border-accent-purple/20'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Music className="w-4 h-4" />
-                <span>Audio</span>
-              </button>
-            </div>
-
-            {/* Quality buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(activeTab === 'video' ? videoFormats : audioFormats).map((fmt) => (
+          {isPhoto ? (
+            <div className="space-y-4">
+              <div className="text-xs font-bold text-accent-cyan tracking-wider uppercase font-orbitron">
+                Format Option
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
-                  key={fmt}
-                  onClick={() => setSelectedFormat(fmt)}
                   disabled={isDownloading}
-                  className={`py-3 px-4 rounded-xl text-xs font-semibold border transition-all duration-200 text-left flex flex-col justify-center ${
-                    selectedFormat === fmt
-                      ? activeTab === 'video'
-                        ? 'border-accent-cyan bg-accent-cyan/5 text-accent-cyan shadow-sm shadow-accent-cyan/10'
-                        : 'border-accent-purple bg-accent-purple/5 text-accent-purple shadow-sm shadow-accent-purple/10'
-                      : 'border-white/5 bg-slate-900/30 hover:bg-slate-900/60 text-slate-400 hover:text-slate-200'
+                  className="py-3 px-4 rounded-xl text-xs font-semibold border border-accent-cyan bg-accent-cyan/5 text-accent-cyan shadow-sm shadow-accent-cyan/10 text-left flex flex-col justify-center"
+                >
+                  <span className="text-slate-300 font-bold">{FORMAT_LABELS['photo']}</span>
+                  <span className="text-[10px] opacity-70 mt-0.5 uppercase">IMAGE FILE</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex bg-slate-950/80 p-1 rounded-xl border border-white/5 w-full max-w-[280px]">
+                <button
+                  onClick={() => handleTabChange('video')}
+                  disabled={isDownloading}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    activeTab === 'video'
+                      ? 'bg-accent-cyan/10 text-accent-cyan font-bold border border-accent-cyan/20'
+                      : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <span className="text-slate-300 font-bold">{FORMAT_LABELS[fmt]}</span>
-                  <span className="text-[10px] opacity-70 mt-0.5 uppercase">{fmt.replace('-', ' ')}</span>
+                  <Video className="w-4 h-4" />
+                  <span>Video</span>
                 </button>
-              ))}
+                <button
+                  onClick={() => handleTabChange('audio')}
+                  disabled={isDownloading}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    activeTab === 'audio'
+                      ? 'bg-accent-purple/10 text-accent-purple font-bold border border-accent-purple/20'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Music className="w-4 h-4" />
+                  <span>Audio</span>
+                </button>
+              </div>
+
+              {/* Quality buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(activeTab === 'video' ? videoFormats : audioFormats).map((fmt) => (
+                  <button
+                    key={fmt}
+                    onClick={() => setSelectedFormat(fmt)}
+                    disabled={isDownloading}
+                    className={`py-3 px-4 rounded-xl text-xs font-semibold border transition-all duration-200 text-left flex flex-col justify-center ${
+                      selectedFormat === fmt
+                        ? activeTab === 'video'
+                          ? 'border-accent-cyan bg-accent-cyan/5 text-accent-cyan shadow-sm shadow-accent-cyan/10'
+                          : 'border-accent-purple bg-accent-purple/5 text-accent-purple shadow-sm shadow-accent-purple/10'
+                        : 'border-white/5 bg-slate-900/30 hover:bg-slate-900/60 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span className="text-slate-300 font-bold">{FORMAT_LABELS[fmt]}</span>
+                    <span className="text-[10px] opacity-70 mt-0.5 uppercase">{fmt.replace('-', ' ')}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action Trigger Button */}
           <div>
@@ -152,7 +181,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-orbitron font-bold text-base text-black transition-all duration-300 ${
                 isDownloading
                   ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed'
-                  : activeTab === 'video'
+                  : isPhoto || activeTab === 'video'
                     ? 'neon-button-cyan'
                     : 'neon-button-purple'
               }`}
@@ -160,7 +189,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               {isDownloading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="animate-pulse">Downloading & Converting...</span>
+                  <span className="animate-pulse">{isPhoto ? 'Downloading Image...' : 'Downloading & Converting...'}</span>
                 </>
               ) : downloadSuccess ? (
                 <>
@@ -170,12 +199,14 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               ) : (
                 <>
                   <Download className="w-5 h-5" />
-                  <span>Start Download</span>
+                  <span>{isPhoto ? 'Download Photo' : 'Start Download'}</span>
                 </>
               )}
             </button>
             <p className="text-[10px] text-center text-slate-500 mt-2.5">
-              Downloaded media streams directly to disk. The server will safely convert audio to MP3 using FFmpeg if requested.
+              {isPhoto
+                ? 'Downloads the original high-resolution photo file directly to your workspace.'
+                : 'Downloaded media streams directly to disk. The server will safely convert audio to MP3 using FFmpeg if requested.'}
             </p>
           </div>
 

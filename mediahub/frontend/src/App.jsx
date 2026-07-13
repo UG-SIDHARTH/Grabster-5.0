@@ -69,10 +69,17 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim() })
       });
-      const data = await res.json();
 
       if (res.status === 429) {
         addToast('Too many requests. Please wait a bit before trying again.', 'error');
+        return;
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        addToast(`Server returned an invalid response (${res.status}). Ensure backend is running.`, 'error');
         return;
       }
 
@@ -103,10 +110,17 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim(), format })
       });
-      const data = await res.json();
 
       if (res.status === 429) {
         addToast('Rate limited. Please wait and try again.', 'error');
+        return;
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        addToast(`Server returned an invalid response (${res.status}). Ensure backend is running.`, 'error');
         return;
       }
 

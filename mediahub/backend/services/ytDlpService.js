@@ -60,6 +60,53 @@ function isAuthRequiredError(errorStr) {
   );
 }
 
+function extractMetaTag(html, propertyName) {
+  const regex1 = new RegExp(`<meta[^>]+(?:property|name)=["']${propertyName}["'][^>]+content=["']([^"']+)["']`, 'i');
+  const regex2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${propertyName}["']`, 'i');
+  const match1 = html.match(regex1);
+  if (match1) return match1[1];
+  const match2 = html.match(regex2);
+  if (match2) return match2[1];
+  return null;
+}
+
+async function fetchPinterestPhotoMetadata(url) {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Pinterest page (${response.status})`);
+    }
+    
+    const html = await response.text();
+    const imageUrl = extractMetaTag(html, 'og:image');
+    if (!imageUrl) {
+      throw new Error('No image URL found in Pinterest metadata.');
+    }
+    
+    const title = extractMetaTag(html, 'og:title') || 'Pinterest Photo';
+    
+    const metadata = {
+      title: title.trim(),
+      thumbnail: imageUrl,
+      duration: 0,
+      uploader: 'Pinterest',
+      uploadDate: 'Unknown',
+      originalUrl: url,
+      isPhoto: true
+    };
+    
+    return metadata;
+  } catch (error) {
+    console.error('Pinterest photo extraction failed:', error);
+    throw new Error(error.message || 'Failed to extract Pinterest photo details.');
+  }
+}
+
 /**
  * Helper to execute yt-dlp safely via spawn.
  * @param {string[]} args - CLI arguments
@@ -114,10 +161,20 @@ async function fetchMetadata(url) {
     return cached.data;
   }
 
+  const isPinterest = url.includes('pinterest.com/pin/') || url.includes('pin.it/');
+
   try {
     const result = await executeYtDlp(['--dump-json', url]);
     
     if (result.code !== 0) {
+      if (isPinterest) {
+        const photoMetadata = await fetchPinterestPhotoMetadata(url);
+        metadataCache.set(url, {
+          data: photoMetadata,
+          expiresAt: Date.now() + CACHE_TTL
+        });
+        return photoMetadata;
+      }
       if (isAuthRequiredError(result.stderr)) {
         throw new Error('This content requires authentication or cookies.');
       }
@@ -149,6 +206,18 @@ async function fetchMetadata(url) {
 
     return metadata;
   } catch (error) {
+    if (isPinterest) {
+      try {
+        const photoMetadata = await fetchPinterestPhotoMetadata(url);
+        metadataCache.set(url, {
+          data: photoMetadata,
+          expiresAt: Date.now() + CACHE_TTL
+        });
+        return photoMetadata;
+      } catch (fallbackError) {
+        // Fall back to original error
+      }
+    }
     if (error.message.includes('authentication or cookies')) {
       throw error;
     }
@@ -165,6 +234,50 @@ async function fetchMetadata(url) {
  * @returns {Promise<{filePath: string, filename: string, size: number}>}
  */
 async function downloadMedia(url, format, fileUuid) {
+  if (format === 'photo') {
+    try {
+      const cached = metadataCache.get(url);
+      if (!cached) {
+        throw new Error('Photo metadata not found in cache.');
+      }
+      const imageUrl = cached.data.thumbnail;
+      
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download image file: HTTP ${response.status}`);
+      }
+      
+      const buffer = Buffer.from(await response.arrayBuffer());
+      
+      let ext = 'jpg';
+      const lowercaseUrl = imageUrl.toLowerCase();
+      if (lowercaseUrl.includes('.png')) ext = 'png';
+      else if (lowercaseUrl.includes('.webp')) ext = 'webp';
+      else if (lowercaseUrl.includes('.gif')) ext = 'gif';
+      
+      const finalFilename = `${fileUuid}.${ext}`;
+      const finalFilePath = path.join(downloadsDir, finalFilename);
+      
+      fs.writeFileSync(finalFilePath, buffer);
+      
+      const stats = fs.statSync(finalFilePath);
+      
+      return {
+        filePath: finalFilePath,
+        filename: finalFilename,
+        size: stats.size
+      };
+    } catch (error) {
+      console.error('Pinterest photo download failed:', error);
+      throw error;
+    }
+  }
+
   const args = [
     url,
     '-o', path.join(tempDir, `${fileUuid}.%(ext)s`)

@@ -6,7 +6,7 @@ const ytDlpService = require('../services/ytDlpService');
 const historyService = require('../services/historyService');
 
 // Valid formats array
-const VALID_FORMATS = ['mp4-360', 'mp4-720', 'mp4-best', 'mp3-128', 'mp3-320', 'm4a'];
+const VALID_FORMATS = ['mp4-360', 'mp4-720', 'mp4-best', 'mp3-128', 'mp3-320', 'm4a', 'photo'];
 
 /**
  * Handles GET /health
