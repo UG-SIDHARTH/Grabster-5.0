@@ -60,13 +60,25 @@ function isAuthRequiredError(errorStr) {
   );
 }
 
+function decodeHtmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&apos;/g, "'");
+}
+
 function extractMetaTag(html, propertyName) {
   const regex1 = new RegExp(`<meta[^>]+(?:property|name)=["']${propertyName}["'][^>]+content=["']([^"']+)["']`, 'i');
   const regex2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${propertyName}["']`, 'i');
   const match1 = html.match(regex1);
-  if (match1) return match1[1];
+  if (match1) return decodeHtmlEntities(match1[1]);
   const match2 = html.match(regex2);
-  if (match2) return match2[1];
+  if (match2) return decodeHtmlEntities(match2[1]);
   return null;
 }
 
