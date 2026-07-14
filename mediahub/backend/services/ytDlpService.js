@@ -1,10 +1,35 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const ultraigdl = require('ultra-igdl').default;
 
 const cookiesPath = path.resolve(__dirname, '..', 'cookies', 'cookies.txt');
 const tempDir = path.resolve(__dirname, '..', 'temp');
 const downloadsDir = path.resolve(__dirname, '..', 'downloads');
+
+function parseNetscapeCookies(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return '';
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+    const cookiePairs = [];
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith('#')) continue;
+      const parts = line.split('\t');
+      if (parts.length >= 7) {
+        const name = parts[5];
+        const value = parts[6];
+        cookiePairs.push(`${name}=${value}`);
+      }
+    }
+    return cookiePairs.join('; ');
+  } catch (err) {
+    console.error('Failed to parse Netscape cookies:', err);
+    return '';
+  }
+}
+
 
 // Local binary fallbacks to make local testing robust on Windows/Linux without editing PATH
 const localYtDlpWin = path.resolve(__dirname, '..', 'yt-dlp.exe');
@@ -184,6 +209,39 @@ async function fetchMetadata(url) {
   else if (isFacebook) platformName = 'Facebook';
   else if (isInstagram) platformName = 'Instagram';
 
+  // Instagram ultra-igdl strategy
+  if (isInstagram) {
+    try {
+      console.log('Attempting Instagram metadata extraction via ultra-igdl...');
+      const cookieStr = parseNetscapeCookies(cookiesPath);
+      const igdl = new ultraigdl({
+        cookies: cookieStr || undefined,
+        timeoutMs: 15000
+      });
+      const result = await igdl.download(url);
+      if (result && result.code === 200 && result.media && result.media.length > 0) {
+        const formatted = {
+          title: result.caption || 'Instagram Post',
+          thumbnail: result.media[0].thumbnail || result.media[0].url || '',
+          duration: result.media[0].duration || 0,
+          uploader: result.username || 'Instagram User',
+          uploadDate: 'Unknown',
+          originalUrl: url
+        };
+        metadataCache.set(url, {
+          data: formatted,
+          expiresAt: Date.now() + CACHE_TTL
+        });
+        return formatted;
+      } else {
+        throw new Error(result.message || 'Failed to extract media data via ultra-igdl');
+      }
+    } catch (igError) {
+      console.warn('Instagram ultra-igdl extraction failed, falling back to local yt-dlp:', igError.message);
+    }
+  }
+
+  // Local yt-dlp dump-json strategy
   try {
     const result = await executeYtDlp(['--dump-json', url]);
     
@@ -318,6 +376,152 @@ async function downloadMedia(url, format, fileUuid) {
     }
   }
 
+  const isInstagram = url.includes('instagram.com/');
+
+  // Instagram ultra-igdl strategy
+  if (isInstagram) {
+    try {
+      console.log('Attempting Instagram media download via ultra-igdl...');
+      const cookieStr = parseNetscapeCookies(cookiesPath);
+      const igdl = new ultraigdl({
+        cookies: cookieStr || undefined,
+        timeoutMs: 25000
+      });
+      const result = await igdl.download(url);
+      if (result && result.code === 200 && result.media && result.media.length > 0) {
+        const mediaItem = result.media[0];
+        const mediaUrl = mediaItem.url;
+        
+        console.log(`Downloading Instagram media from CDN URL: ${mediaUrl}`);
+        const fileRes = await fetch(mediaUrl);
+        if (!fileRes.ok) {
+          throw new Error(`Failed to fetch Instagram media file: HTTP ${fileRes.status}`);
+        }
+        
+        const buffer = Buffer.from(await fileRes.arrayBuffer());
+        let ext = 'mp4';
+        if (mediaItem.type === 'image') {
+          ext = 'jpg';
+        } else {
+          try {
+            const parsedUrl = new URL(mediaUrl);
+            const pathParts = parsedUrl.pathname.split('.');
+            if (pathParts.length > 1) {
+              const possibleExt = pathParts[pathParts.length - 1].toLowerCase();
+              if (['mp4', 'jpg', 'jpeg', 'png', 'webp', 'gif'].includes(possibleExt)) {
+                ext = possibleExt;
+              }
+            }
+          } catch (e) {}
+        }
+        
+        const finalFilename = `${fileUuid}.${ext}`;
+        const finalFilePath = path.join(downloadsDir, finalFilename);
+        fs.writeFileSync(finalFilePath, buffer);
+        
+        const stats = fs.statSync(finalFilePath);
+        return {
+          filePath: finalFilePath,
+          filename: finalFilename,
+          size: stats.size
+        };
+      } else {
+        throw new Error(result.message || 'ultra-igdl did not return any media');
+      }
+    } catch (igError) {
+      console.warn('Instagram ultra-igdl download failed, falling back to local yt-dlp:', igError.message);
+    }
+  } else {
+    // Non-Instagram Cobalt strategy
+    const COBALT_APIS = [
+      'https://cobaltapi.kittycat.boo/',
+      'https://cobaltapi.cjs.nz/'
+    ];
+    
+    // Construct cobalt options
+    const cobaltOptions = {
+      url: url,
+      filenameStyle: 'basic'
+    };
+    
+    if (format === 'mp4-360') {
+      cobaltOptions.videoQuality = '360';
+    } else if (format === 'mp4-720') {
+      cobaltOptions.videoQuality = '720';
+    } else if (format === 'mp4-best') {
+      cobaltOptions.videoQuality = 'max';
+    } else if (format === 'mp3-128') {
+      cobaltOptions.downloadMode = 'audio';
+      cobaltOptions.audioFormat = 'mp3';
+      cobaltOptions.audioBitrate = '128';
+    } else if (format === 'mp3-320') {
+      cobaltOptions.downloadMode = 'audio';
+      cobaltOptions.audioFormat = 'mp3';
+      cobaltOptions.audioBitrate = '320';
+    } else if (format === 'm4a') {
+      cobaltOptions.downloadMode = 'audio';
+      cobaltOptions.audioFormat = 'best';
+    }
+    
+    for (const api of COBALT_APIS) {
+      try {
+        console.log(`Attempting Cobalt download on instance: ${api}`);
+        const res = await fetch(api, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(cobaltOptions)
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'tunnel' || data.status === 'redirect') {
+            const downloadUrl = data.url;
+            console.log(`Downloading media from Cobalt tunnel: ${downloadUrl}`);
+            const fileRes = await fetch(downloadUrl);
+            if (!fileRes.ok) {
+              throw new Error(`Failed to fetch media file: HTTP ${fileRes.status}`);
+            }
+            
+            const buffer = Buffer.from(await fileRes.arrayBuffer());
+            let ext = 'mp4';
+            if (data.filename) {
+              const parts = data.filename.split('.');
+              if (parts.length > 1) {
+                ext = parts[parts.length - 1].toLowerCase();
+              }
+            } else if (format.includes('mp3')) {
+              ext = 'mp3';
+            } else if (format === 'm4a') {
+              ext = 'm4a';
+            }
+            
+            const finalFilename = `${fileUuid}.${ext}`;
+            const finalFilePath = path.join(downloadsDir, finalFilename);
+            fs.writeFileSync(finalFilePath, buffer);
+            
+            const stats = fs.statSync(finalFilePath);
+            return {
+              filePath: finalFilePath,
+              filename: finalFilename,
+              size: stats.size
+            };
+          } else if (data.status === 'error') {
+            throw new Error(data.error.code || 'Cobalt returned error status');
+          }
+        } else {
+          throw new Error(`HTTP status ${res.status}`);
+        }
+      } catch (err) {
+        console.warn(`Cobalt API ${api} failed:`, err.message);
+      }
+    }
+  }
+
+  // Fallback to local yt-dlp execution
+  console.log('Bypassing/Failed primary download service. Falling back to local yt-dlp execution...');
   const args = [
     url,
     '-o', path.join(tempDir, `${fileUuid}.%(ext)s`)
@@ -359,7 +563,6 @@ async function downloadMedia(url, format, fileUuid) {
     }
 
     // Now find the downloaded file in the temp directory.
-    // yt-dlp might have written uuid.mp4, uuid.mp3, uuid.m4a, etc.
     const files = fs.readdirSync(tempDir);
     const downloadedFile = files.find(f => f.startsWith(fileUuid));
 
