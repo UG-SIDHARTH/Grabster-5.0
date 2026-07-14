@@ -448,6 +448,10 @@ async function downloadMedia(url, format, fileUuid) {
       cobaltOptions.videoQuality = '360';
     } else if (format === 'mp4-720') {
       cobaltOptions.videoQuality = '720';
+    } else if (format === 'mp4-1080') {
+      cobaltOptions.videoQuality = '1080';
+    } else if (format === 'mp4-4k') {
+      cobaltOptions.videoQuality = '2160';
     } else if (format === 'mp4-best') {
       cobaltOptions.videoQuality = 'max';
     } else if (format === 'mp3-128') {
@@ -535,6 +539,14 @@ async function downloadMedia(url, format, fileUuid) {
     ext = 'mp4';
   } else if (format === 'mp4-720') {
     args.push('-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best');
+    args.push('--merge-output-format', 'mp4');
+    ext = 'mp4';
+  } else if (format === 'mp4-1080') {
+    args.push('-f', 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best');
+    args.push('--merge-output-format', 'mp4');
+    ext = 'mp4';
+  } else if (format === 'mp4-4k') {
+    args.push('-f', 'bestvideo[height<=2160]+bestaudio/best[height<=2160]/best');
     args.push('--merge-output-format', 'mp4');
     ext = 'mp4';
   } else if (format === 'mp4-best') {

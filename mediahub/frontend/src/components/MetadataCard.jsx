@@ -5,6 +5,8 @@ import { Play, Download, Music, Video, Calendar, User, Clock, Loader2, CheckCirc
 const FORMAT_LABELS = {
   'mp4-360': 'MP4 360p (Low)',
   'mp4-720': 'MP4 720p (HD)',
+  'mp4-1080': 'MP4 1080p (Full HD)',
+  'mp4-4k': 'MP4 4K (Ultra HD)',
   'mp4-best': 'Best Available Video',
   'mp3-128': 'MP3 128 kbps',
   'mp3-320': 'MP3 320 kbps',
@@ -74,7 +76,7 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
     onDownload(selectedFormat);
   };
 
-  const videoFormats = ['mp4-360', 'mp4-720', 'mp4-best'];
+  const videoFormats = ['mp4-360', 'mp4-720', 'mp4-1080', 'mp4-4k', 'mp4-best'];
   const audioFormats = ['mp3-128', 'mp3-320', 'm4a'];
   const imageFormats = ['photo'];
 
