@@ -28,16 +28,35 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
   const [activeTab, setActiveTab] = useState('video'); // 'video' | 'audio' | 'image'
   const [selectedFormat, setSelectedFormat] = useState('mp4-720'); // default select
 
-  const isPhoto = metadata.isPhoto;
+  const url = (metadata.originalUrl || '').toLowerCase();
+  
+  const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
+  const isGit = url.includes('github.com') || url.includes('gitlab.com') || url.includes('git');
+  const isInstagramReel = url.includes('instagram.com/reel') || url.includes('instagram.com/reels');
+  const isFacebookReel = url.includes('facebook.com/reel') || url.includes('facebook.com/reels') || url.includes('facebook.com/watch');
+  
+  const isInstagramPost = url.includes('instagram.com/p/') || url.includes('instagram.com/photo') || url.includes('instagram.com/stories');
+  const isFacebookPost = url.includes('facebook.com') && !isFacebookReel;
+  const isXPost = url.includes('x.com') || url.includes('twitter.com');
+  const isPinterest = url.includes('pinterest.com') || url.includes('pin.it');
+
+  let isPhoto = metadata.isPhoto;
+  
+  if (isInstagramReel || isFacebookReel || isYoutube || isGit) {
+    isPhoto = false;
+  } else if (isInstagramPost || isFacebookPost || isXPost || isPinterest) {
+    isPhoto = true;
+  }
 
   useEffect(() => {
     if (isPhoto) {
       setSelectedFormat('photo');
+      setActiveTab('image');
     } else {
       setSelectedFormat('mp4-720');
       setActiveTab('video');
     }
-  }, [metadata]);
+  }, [metadata, isPhoto]);
 
   const handleTabChange = (tab) => {
     if (isPhoto) return;
