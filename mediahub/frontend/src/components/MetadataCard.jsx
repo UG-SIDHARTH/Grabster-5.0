@@ -200,8 +200,12 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
                         : 'border-white/5 bg-slate-900/30 hover:bg-slate-900/60 text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    <span className="text-slate-300 font-bold">{FORMAT_LABELS[fmt]}</span>
-                    <span className="text-[10px] opacity-70 mt-0.5 uppercase">{fmt.replace('-', ' ')}</span>
+                    <span className="text-slate-300 font-bold">
+                      {fmt === 'photo' && activeTab === 'image' && !isPhoto ? 'Original Quality Thumbnail' : FORMAT_LABELS[fmt]}
+                    </span>
+                    <span className="text-[10px] opacity-70 mt-0.5 uppercase">
+                      {fmt === 'photo' && activeTab === 'image' && !isPhoto ? 'THUMBNAIL FILE' : fmt.replace('-', ' ')}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -224,7 +228,13 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               {isDownloading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="animate-pulse">{isPhoto || activeTab === 'image' ? 'Downloading Image...' : 'Downloading & Converting...'}</span>
+                  <span className="animate-pulse">
+                    {isPhoto 
+                      ? 'Downloading Photo...' 
+                      : activeTab === 'image' 
+                        ? 'Downloading Thumbnail...' 
+                        : 'Downloading & Converting...'}
+                  </span>
                 </>
               ) : downloadSuccess ? (
                 <>
@@ -234,14 +244,22 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
               ) : (
                 <>
                   <Download className="w-5 h-5" />
-                  <span>{isPhoto || activeTab === 'image' ? 'Download Photo' : 'Start Download'}</span>
+                  <span>
+                    {isPhoto 
+                      ? 'Download Photo' 
+                      : activeTab === 'image' 
+                        ? 'Download Thumbnail' 
+                        : 'Start Download'}
+                  </span>
                 </>
               )}
             </button>
             <p className="text-[10px] text-center text-slate-500 mt-2.5">
-              {isPhoto || activeTab === 'image'
+              {isPhoto 
                 ? 'Downloads the original high-resolution photo file directly to your workspace.'
-                : 'Downloaded media streams directly to disk. The server will safely convert audio to MP3 using FFmpeg if requested.'}
+                : activeTab === 'image'
+                  ? 'Downloads the original video preview thumbnail directly to your workspace.'
+                  : 'Downloaded media streams directly to disk. The server will safely convert audio to MP3 using FFmpeg if requested.'}
             </p>
           </div>
 
