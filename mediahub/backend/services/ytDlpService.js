@@ -226,7 +226,8 @@ async function fetchMetadata(url) {
           duration: result.media[0].duration || 0,
           uploader: result.username || 'Instagram User',
           uploadDate: 'Unknown',
-          originalUrl: url
+          originalUrl: url,
+          availableResolutions: [360, 720, 1080]
         };
         metadataCache.set(url, {
           data: formatted,
@@ -262,6 +263,16 @@ async function fetchMetadata(url) {
 
     const rawData = JSON.parse(result.stdout);
     
+    // Extract available resolution heights from format list
+    const heights = [];
+    if (rawData.formats && Array.isArray(rawData.formats)) {
+      for (const f of rawData.formats) {
+        if (f.height && !heights.includes(f.height)) {
+          heights.push(f.height);
+        }
+      }
+    }
+    
     // Format upload date nicely: YYYYMMDD -> YYYY-MM-DD
     let formattedDate = 'Unknown';
     if (rawData.upload_date && rawData.upload_date.length === 8) {
@@ -274,7 +285,8 @@ async function fetchMetadata(url) {
       duration: rawData.duration || 0,
       uploader: rawData.uploader || rawData.channel || 'Unknown',
       uploadDate: formattedDate,
-      originalUrl: url
+      originalUrl: url,
+      availableResolutions: heights
     };
 
     // Cache the result
@@ -433,93 +445,94 @@ async function downloadMedia(url, format, fileUuid) {
     }
   } else {
     // Non-Instagram Cobalt strategy
-    const COBALT_APIS = [
-      'https://cobaltapi.kittycat.boo/',
-      'https://cobaltapi.cjs.nz/'
-    ];
+    // Skip Cobalt for 1080p and 4K because public Cobalt instances limit resolution to 720p max
+    const isHighQuality = format === 'mp4-1080' || format === 'mp4-4k';
     
-    // Construct cobalt options
-    const cobaltOptions = {
-      url: url,
-      filenameStyle: 'basic'
-    };
-    
-    if (format === 'mp4-360') {
-      cobaltOptions.videoQuality = '360';
-    } else if (format === 'mp4-720') {
-      cobaltOptions.videoQuality = '720';
-    } else if (format === 'mp4-1080') {
-      cobaltOptions.videoQuality = '1080';
-    } else if (format === 'mp4-4k') {
-      cobaltOptions.videoQuality = '2160';
-    } else if (format === 'mp4-best') {
-      cobaltOptions.videoQuality = 'max';
-    } else if (format === 'mp3-128') {
-      cobaltOptions.downloadMode = 'audio';
-      cobaltOptions.audioFormat = 'mp3';
-      cobaltOptions.audioBitrate = '128';
-    } else if (format === 'mp3-320') {
-      cobaltOptions.downloadMode = 'audio';
-      cobaltOptions.audioFormat = 'mp3';
-      cobaltOptions.audioBitrate = '320';
-    } else if (format === 'm4a') {
-      cobaltOptions.downloadMode = 'audio';
-      cobaltOptions.audioFormat = 'best';
-    }
-    
-    for (const api of COBALT_APIS) {
-      try {
-        console.log(`Attempting Cobalt download on instance: ${api}`);
-        const res = await fetch(api, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(cobaltOptions)
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status === 'tunnel' || data.status === 'redirect') {
-            const downloadUrl = data.url;
-            console.log(`Downloading media from Cobalt tunnel: ${downloadUrl}`);
-            const fileRes = await fetch(downloadUrl);
-            if (!fileRes.ok) {
-              throw new Error(`Failed to fetch media file: HTTP ${fileRes.status}`);
-            }
-            
-            const buffer = Buffer.from(await fileRes.arrayBuffer());
-            let ext = 'mp4';
-            if (data.filename) {
-              const parts = data.filename.split('.');
-              if (parts.length > 1) {
-                ext = parts[parts.length - 1].toLowerCase();
+    if (!isHighQuality) {
+      const COBALT_APIS = [
+        'https://cobaltapi.kittycat.boo/',
+        'https://cobaltapi.cjs.nz/'
+      ];
+      
+      // Construct cobalt options
+      const cobaltOptions = {
+        url: url,
+        filenameStyle: 'basic'
+      };
+      
+      if (format === 'mp4-360') {
+        cobaltOptions.videoQuality = '360';
+      } else if (format === 'mp4-720') {
+        cobaltOptions.videoQuality = '720';
+      } else if (format === 'mp4-best') {
+        cobaltOptions.videoQuality = 'max';
+      } else if (format === 'mp3-128') {
+        cobaltOptions.downloadMode = 'audio';
+        cobaltOptions.audioFormat = 'mp3';
+        cobaltOptions.audioBitrate = '128';
+      } else if (format === 'mp3-320') {
+        cobaltOptions.downloadMode = 'audio';
+        cobaltOptions.audioFormat = 'mp3';
+        cobaltOptions.audioBitrate = '320';
+      } else if (format === 'm4a') {
+        cobaltOptions.downloadMode = 'audio';
+        cobaltOptions.audioFormat = 'best';
+      }
+      
+      for (const api of COBALT_APIS) {
+        try {
+          console.log(`Attempting Cobalt download on instance: ${api}`);
+          const res = await fetch(api, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(cobaltOptions)
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'tunnel' || data.status === 'redirect') {
+              const downloadUrl = data.url;
+              console.log(`Downloading media from Cobalt tunnel: ${downloadUrl}`);
+              const fileRes = await fetch(downloadUrl);
+              if (!fileRes.ok) {
+                throw new Error(`Failed to fetch media file: HTTP ${fileRes.status}`);
               }
-            } else if (format.includes('mp3')) {
-              ext = 'mp3';
-            } else if (format === 'm4a') {
-              ext = 'm4a';
+              
+              const buffer = Buffer.from(await fileRes.arrayBuffer());
+              let ext = 'mp4';
+              if (data.filename) {
+                const parts = data.filename.split('.');
+                if (parts.length > 1) {
+                  ext = parts[parts.length - 1].toLowerCase();
+                }
+              } else if (format.includes('mp3')) {
+                ext = 'mp3';
+              } else if (format === 'm4a') {
+                ext = 'm4a';
+              }
+              
+              const finalFilename = `${fileUuid}.${ext}`;
+              const finalFilePath = path.join(downloadsDir, finalFilename);
+              fs.writeFileSync(finalFilePath, buffer);
+              
+              const stats = fs.statSync(finalFilePath);
+              return {
+                filePath: finalFilePath,
+                filename: finalFilename,
+                size: stats.size
+              };
+            } else if (data.status === 'error') {
+              throw new Error(data.error.code || 'Cobalt returned error status');
             }
-            
-            const finalFilename = `${fileUuid}.${ext}`;
-            const finalFilePath = path.join(downloadsDir, finalFilename);
-            fs.writeFileSync(finalFilePath, buffer);
-            
-            const stats = fs.statSync(finalFilePath);
-            return {
-              filePath: finalFilePath,
-              filename: finalFilename,
-              size: stats.size
-            };
-          } else if (data.status === 'error') {
-            throw new Error(data.error.code || 'Cobalt returned error status');
+          } else {
+            throw new Error(`HTTP status ${res.status}`);
           }
-        } else {
-          throw new Error(`HTTP status ${res.status}`);
+        } catch (err) {
+          console.warn(`Cobalt API ${api} failed:`, err.message);
         }
-      } catch (err) {
-        console.warn(`Cobalt API ${api} failed:`, err.message);
       }
     }
   }

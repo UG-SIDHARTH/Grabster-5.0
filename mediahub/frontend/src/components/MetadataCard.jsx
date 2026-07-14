@@ -55,7 +55,16 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
       setSelectedFormat('photo');
       setActiveTab('image');
     } else {
-      setSelectedFormat('mp4-720');
+      const available = metadata.availableResolutions || [];
+      if (available.length > 0) {
+        if (available.some(h => h >= 720)) {
+          setSelectedFormat('mp4-720');
+        } else {
+          setSelectedFormat('mp4-360');
+        }
+      } else {
+        setSelectedFormat('mp4-720');
+      }
       setActiveTab('video');
     }
   }, [metadata, isPhoto]);
@@ -64,7 +73,12 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
     if (isPhoto) return;
     setActiveTab(tab);
     if (tab === 'video') {
-      setSelectedFormat('mp4-720');
+      const available = metadata.availableResolutions || [];
+      if (available.length > 0 && !available.some(h => h >= 720)) {
+        setSelectedFormat('mp4-360');
+      } else {
+        setSelectedFormat('mp4-720');
+      }
     } else if (tab === 'audio') {
       setSelectedFormat('mp3-320');
     } else if (tab === 'image') {
@@ -76,7 +90,17 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
     onDownload(selectedFormat);
   };
 
-  const videoFormats = ['mp4-360', 'mp4-720', 'mp4-1080', 'mp4-4k', 'mp4-best'];
+  const availableRes = metadata.availableResolutions || [];
+  const videoFormats = ['mp4-360'];
+  if (availableRes.length === 0) {
+    videoFormats.push('mp4-720', 'mp4-best');
+  } else {
+    if (availableRes.some(h => h >= 720)) videoFormats.push('mp4-720');
+    if (availableRes.some(h => h >= 1080)) videoFormats.push('mp4-1080');
+    if (availableRes.some(h => h >= 2160)) videoFormats.push('mp4-4k');
+    videoFormats.push('mp4-best');
+  }
+
   const audioFormats = ['mp3-128', 'mp3-320', 'm4a'];
   const imageFormats = ['photo'];
 
