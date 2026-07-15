@@ -90,11 +90,29 @@ function updateHistoryItem(id, updates) {
   }
 }
 
+/**
+ * Marks a history item as expired by its filename.
+ * @param {string} filename - Filename of the item to expire
+ */
+function expireHistoryItemByFilename(filename) {
+  const history = getHistory();
+  const index = history.findIndex(item => item.filename === filename);
+  if (index !== -1) {
+    history[index] = {
+      ...history[index],
+      status: 'expired',
+      filename: null
+    };
+    saveHistory(history);
+  }
+}
+
 // Initialise on load
 initHistory();
 
 module.exports = {
   getHistory,
   addToHistory,
-  updateHistoryItem
+  updateHistoryItem,
+  expireHistoryItemByFilename
 };

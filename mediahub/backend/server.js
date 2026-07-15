@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 const historyService = require('./services/historyService');
+const cleanupService = require('./services/cleanupService');
 const { sanitizeTitleForHeader } = require('./utils/filename');
 const apiRoutes = require('./routes/api');
 const mediaController = require('./controllers/mediaController');
@@ -100,4 +101,6 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Novara backend listening at http://localhost:${PORT}`);
+  // Start periodic cleanup of files older than 1 hour
+  cleanupService.startCleanupInterval();
 });
