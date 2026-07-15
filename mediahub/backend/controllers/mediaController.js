@@ -65,10 +65,28 @@ async function download(req, res) {
 
   // Create temporary unique ID for tracking
   const downloadId = uuidv4();
+  let isFinished = false;
+
+  req.on('close', () => {
+    if (!isFinished) {
+      console.log(`[Media Controller] Client disconnected for download ${downloadId}. Aborting.`);
+      const cancelledInQueue = downloadQueue.cancel(downloadId);
+      if (cancelledInQueue) {
+        console.log(`[Media Controller] Successfully removed download ${downloadId} from queue.`);
+      } else {
+        ytDlpService.cancelDownload(downloadId);
+      }
+    }
+  });
 
   try {
     // Queue the download to respect concurrency limits
     const result = await downloadQueue.run(async () => {
+      // If client already aborted while waiting in the queue
+      if (req.destroyed) {
+        throw new Error('Connection closed before task started execution.');
+      }
+
       // 1. Fetch metadata first to get video details (Title, Thumbnail, etc.)
       const metadata = await ytDlpService.fetchMetadata(url);
 
@@ -93,14 +111,16 @@ async function download(req, res) {
         downloadUrl: `/downloads/${downloadResult.filename}`,
         filename: downloadResult.filename
       };
-    });
+    }, downloadId);
 
+    isFinished = true;
     return res.json({
       success: true,
       downloadUrl: result.downloadUrl
     });
 
   } catch (error) {
+    isFinished = true;
     console.error('Download error:', error);
     return res.status(500).json({
       success: false,

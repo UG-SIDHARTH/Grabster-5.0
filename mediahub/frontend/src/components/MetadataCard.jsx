@@ -26,7 +26,7 @@ function formatDuration(seconds) {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export default function MetadataCard({ metadata, onDownload, isDownloading, downloadSuccess }) {
+export default function MetadataCard({ metadata, onDownload, isDownloading, downloadSuccess, onCancelDownload }) {
   const [activeTab, setActiveTab] = useState('video'); // 'video' | 'audio' | 'image'
   const [selectedFormat, setSelectedFormat] = useState('mp4-720'); // default select
 
@@ -240,46 +240,57 @@ export default function MetadataCard({ metadata, onDownload, isDownloading, down
 
           {/* Action Trigger Button */}
           <div>
-            <button
-              onClick={handleDownloadClick}
-              disabled={isDownloading}
-              className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-orbitron font-bold text-base text-black transition-all duration-300 ${
-                isDownloading
-                  ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed'
-                  : isPhoto || activeTab === 'video' || activeTab === 'image'
-                    ? 'neon-button-cyan'
-                    : 'neon-button-purple'
-              }`}
-            >
-              {isDownloading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="animate-pulse">
-                    {isPhoto 
-                      ? 'Downloading Photo...' 
-                      : activeTab === 'image' 
-                        ? 'Downloading Thumbnail...' 
-                        : 'Downloading & Converting...'}
-                  </span>
-                </>
-              ) : downloadSuccess ? (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Download Finished!</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-5 h-5" />
-                  <span>
-                    {isPhoto 
-                      ? 'Download Photo' 
-                      : activeTab === 'image' 
-                        ? 'Download Thumbnail' 
-                        : 'Start Download'}
-                  </span>
-                </>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleDownloadClick}
+                disabled={isDownloading}
+                className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-orbitron font-bold text-base text-black transition-all duration-300 ${
+                  isDownloading
+                    ? 'bg-slate-800 border border-slate-700 text-slate-400 cursor-not-allowed'
+                    : isPhoto || activeTab === 'video' || activeTab === 'image'
+                      ? 'neon-button-cyan'
+                      : 'neon-button-purple'
+                }`}
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="animate-pulse">
+                      {isPhoto 
+                        ? 'Downloading Photo...' 
+                        : activeTab === 'image' 
+                          ? 'Downloading Thumbnail...' 
+                          : 'Downloading...'}
+                    </span>
+                  </>
+                ) : downloadSuccess ? (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Download Finished!</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    <span>
+                      {isPhoto 
+                        ? 'Download Photo' 
+                        : activeTab === 'image' 
+                          ? 'Download Thumbnail' 
+                          : 'Start Download'}
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {isDownloading && onCancelDownload && (
+                <button
+                  onClick={onCancelDownload}
+                  className="sm:w-1/3 py-4 rounded-2xl font-orbitron font-bold text-base bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:border-rose-500/50 transition-all duration-200"
+                >
+                  Cancel
+                </button>
               )}
-            </button>
+            </div>
             <p className="text-[10px] text-center text-slate-500 mt-2.5">
               {isPhoto 
                 ? 'Downloads the original high-resolution photo file directly to your workspace.'

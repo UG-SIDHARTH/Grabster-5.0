@@ -25,6 +25,7 @@ export default function App() {
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [downloadAbortController, setDownloadAbortController] = useState(null);
 
   // Toast Helpers
   const addToast = (message, type = 'info', duration = 6000) => {
@@ -79,19 +80,34 @@ export default function App() {
     }
   };
 
+  // Handle Cancel Download Request
+  const handleCancelDownload = () => {
+    if (downloadAbortController) {
+      downloadAbortController.abort();
+      setDownloadAbortController(null);
+      setIsDownloading(false);
+      addToast('Download cancelled by user.', 'warning', 4000);
+    }
+  };
+
   // Handle Download Request
   const handleDownload = async (format) => {
     if (!url.trim()) return;
 
     setIsDownloading(true);
     setDownloadSuccess(false);
+
+    const controller = new AbortController();
+    setDownloadAbortController(controller);
+
     addToast('Adding job to queue... Starting download process.', 'info', 4000);
 
     try {
       const res = await fetch(getApiUrl('/api/download'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), format })
+        body: JSON.stringify({ url: url.trim(), format }),
+        signal: controller.signal
       });
 
       if (res.status === 429) {
@@ -124,9 +140,14 @@ export default function App() {
         addToast(data.error || 'Failed to process media file download.', 'error');
       }
     } catch (err) {
+      if (err.name === 'AbortError') {
+        // Handled in cancel action
+        return;
+      }
       addToast('Network error occurred during download processing.', 'error');
     } finally {
       setIsDownloading(false);
+      setDownloadAbortController(null);
     }
   };
 
@@ -206,6 +227,7 @@ export default function App() {
               onDownload={handleDownload}
               isDownloading={isDownloading}
               downloadSuccess={downloadSuccess}
+              onCancelDownload={handleCancelDownload}
             />
           </section>
         )}

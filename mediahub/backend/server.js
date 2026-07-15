@@ -75,7 +75,7 @@ app.get('/downloads/:filename', (req, res) => {
   // Look up original file name in download history database
   const history = historyService.getHistory();
   const item = history.find(entry => entry.filename === filename);
-  
+
   let clientFilename = filename;
   if (item) {
     const safeTitle = sanitizeTitleForHeader(item.title);
@@ -99,13 +99,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Novara backend listening at http://localhost:${PORT}`);
   // Start periodic cleanup of files older than 1 hour
   cleanupService.startCleanupInterval();
 });
-
-// Set server timeouts to 10 minutes to support large downloads
-server.timeout = 10 * 60 * 1000;
-server.keepAliveTimeout = 10 * 60 * 1000;
-server.headersTimeout = 10 * 60 * 1000 + 5000; // Must be slightly larger than keepAliveTimeout

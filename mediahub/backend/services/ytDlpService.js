@@ -7,6 +7,9 @@ const cookiesPath = path.resolve(__dirname, '..', 'cookies', 'cookies.txt');
 const tempDir = path.resolve(__dirname, '..', 'temp');
 const downloadsDir = path.resolve(__dirname, '..', 'downloads');
 
+// Track active download child processes and abort controllers
+const activeDownloads = new Map(); // fileUuid -> { process, abortController }
+
 function parseNetscapeCookies(filePath) {
   try {
     if (!fs.existsSync(filePath)) return '';
@@ -114,19 +117,19 @@ async function fetchPhotoMetadataFallback(url, platformName) {
         'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
       }
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch ${platformName} page (${response.status})`);
     }
-    
+
     const html = await response.text();
     const imageUrl = extractMetaTag(html, 'og:image');
     if (!imageUrl) {
       throw new Error(`No image URL found in ${platformName} metadata.`);
     }
-    
+
     const title = extractMetaTag(html, 'og:title') || `${platformName} Photo`;
-    
+
     const metadata = {
       title: title.trim(),
       thumbnail: imageUrl,
@@ -136,7 +139,7 @@ async function fetchPhotoMetadataFallback(url, platformName) {
       originalUrl: url,
       isPhoto: true
     };
-    
+
     return metadata;
   } catch (error) {
     console.error(`${platformName} photo extraction failed:`, error);
@@ -149,7 +152,7 @@ async function fetchPhotoMetadataFallback(url, platformName) {
  * @param {string[]} args - CLI arguments
  * @returns {Promise<{stdout: string, stderr: string, code: number}>}
  */
-function executeYtDlp(args) {
+function executeYtDlp(args, fileUuid) {
   return new Promise((resolve, reject) => {
     const defaultArgs = ['--no-warnings', '--no-playlist', '--js-runtimes', 'node'];
     
@@ -164,22 +167,25 @@ function executeYtDlp(args) {
     }
     
     const child = spawn(ytDlpBinary, [...defaultArgs, ...args]);
-    
+    if (fileUuid && activeDownloads.has(fileUuid)) {
+      activeDownloads.get(fileUuid).process = child;
+    }
+
     let stdout = '';
     let stderr = '';
-    
+
     child.stdout.on('data', (data) => {
       stdout += data.toString();
     });
-    
+
     child.stderr.on('data', (data) => {
       stderr += data.toString();
     });
-    
+
     child.on('close', (code) => {
       resolve({ stdout, stderr, code });
     });
-    
+
     child.on('error', (err) => {
       reject(err);
     });
@@ -245,7 +251,7 @@ async function fetchMetadata(url) {
   // Local yt-dlp dump-json strategy
   try {
     const result = await executeYtDlp(['--dump-json', url]);
-    
+
     if (result.code !== 0) {
       if (platformName) {
         const photoMetadata = await fetchPhotoMetadataFallback(url, platformName);
@@ -262,7 +268,7 @@ async function fetchMetadata(url) {
     }
 
     const rawData = JSON.parse(result.stdout);
-    
+
     // Extract available resolution heights from format list
     const heights = [];
     if (rawData.formats && Array.isArray(rawData.formats)) {
@@ -272,7 +278,7 @@ async function fetchMetadata(url) {
         }
       }
     }
-    
+
     // Format upload date nicely: YYYYMMDD -> YYYY-MM-DD
     let formattedDate = 'Unknown';
     if (rawData.upload_date && rawData.upload_date.length === 8) {
@@ -325,7 +331,9 @@ async function fetchMetadata(url) {
  * @returns {Promise<{filePath: string, filename: string, size: number}>}
  */
 async function downloadMedia(url, format, fileUuid) {
-  if (format === 'photo') {
+  activeDownloads.set(fileUuid, { abortController: new AbortController() });
+  try {
+    if (format === 'photo') {
     try {
       const cached = metadataCache.get(url);
       if (!cached) {
@@ -344,7 +352,7 @@ async function downloadMedia(url, format, fileUuid) {
         } else if (parsedImg.hostname.includes('pinimg.com') || parsedImg.hostname.includes('pinterest.com')) {
           referer = 'https://www.pinterest.com/';
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const response = await fetch(imageUrl, {
         headers: {
@@ -355,28 +363,29 @@ async function downloadMedia(url, format, fileUuid) {
           'Sec-Fetch-Dest': 'image',
           'Sec-Fetch-Mode': 'no-cors',
           'Sec-Fetch-Site': 'cross-site'
-        }
+        },
+        signal: activeDownloads.get(fileUuid)?.abortController?.signal
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to download image file: HTTP ${response.status}`);
       }
-      
+
       const buffer = Buffer.from(await response.arrayBuffer());
-      
+
       let ext = 'jpg';
       const lowercaseUrl = imageUrl.toLowerCase();
       if (lowercaseUrl.includes('.png')) ext = 'png';
       else if (lowercaseUrl.includes('.webp')) ext = 'webp';
       else if (lowercaseUrl.includes('.gif')) ext = 'gif';
-      
+
       const finalFilename = `${fileUuid}.${ext}`;
       const finalFilePath = path.join(downloadsDir, finalFilename);
-      
+
       fs.writeFileSync(finalFilePath, buffer);
-      
+
       const stats = fs.statSync(finalFilePath);
-      
+
       return {
         filePath: finalFilePath,
         filename: finalFilename,
@@ -403,13 +412,13 @@ async function downloadMedia(url, format, fileUuid) {
       if (result && result.code === 200 && result.media && result.media.length > 0) {
         const mediaItem = result.media[0];
         const mediaUrl = mediaItem.url;
-        
+
         console.log(`Downloading Instagram media from CDN URL: ${mediaUrl}`);
-        const fileRes = await fetch(mediaUrl);
+        const fileRes = await fetch(mediaUrl, { signal: activeDownloads.get(fileUuid)?.abortController?.signal });
         if (!fileRes.ok) {
           throw new Error(`Failed to fetch Instagram media file: HTTP ${fileRes.status}`);
         }
-        
+
         const buffer = Buffer.from(await fileRes.arrayBuffer());
         let ext = 'mp4';
         if (mediaItem.type === 'image') {
@@ -424,13 +433,13 @@ async function downloadMedia(url, format, fileUuid) {
                 ext = possibleExt;
               }
             }
-          } catch (e) {}
+          } catch (e) { }
         }
-        
+
         const finalFilename = `${fileUuid}.${ext}`;
         const finalFilePath = path.join(downloadsDir, finalFilename);
         fs.writeFileSync(finalFilePath, buffer);
-        
+
         const stats = fs.statSync(finalFilePath);
         return {
           filePath: finalFilePath,
@@ -445,41 +454,41 @@ async function downloadMedia(url, format, fileUuid) {
     }
   } else {
     // Non-Instagram Cobalt strategy
-    const COBALT_APIS = [
-      'https://cobaltapi.kittycat.boo/',
-      'https://cobaltapi.cjs.nz/'
-    ];
-    
-    // Construct cobalt options
-    const cobaltOptions = {
-      url: url,
-      filenameStyle: 'basic'
-    };
-    
-    if (format === 'mp4-360') {
-      cobaltOptions.videoQuality = '360';
-    } else if (format === 'mp4-720') {
-      cobaltOptions.videoQuality = '720';
-    } else if (format === 'mp4-1080') {
-      cobaltOptions.videoQuality = '1080';
-    } else if (format === 'mp4-4k') {
-      cobaltOptions.videoQuality = '2160';
-    } else if (format === 'mp4-best') {
-      cobaltOptions.videoQuality = 'max';
-    } else if (format === 'mp3-128') {
-      cobaltOptions.downloadMode = 'audio';
-      cobaltOptions.audioFormat = 'mp3';
-      cobaltOptions.audioBitrate = '128';
-    } else if (format === 'mp3-320') {
-      cobaltOptions.downloadMode = 'audio';
-      cobaltOptions.audioFormat = 'mp3';
-      cobaltOptions.audioBitrate = '320';
-    } else if (format === 'm4a') {
-      cobaltOptions.downloadMode = 'audio';
-      cobaltOptions.audioFormat = 'best';
-    }
-    
-    for (const api of COBALT_APIS) {
+    // Skip Cobalt for 1080p and 4K because public Cobalt instances limit resolution to 720p max
+    const isHighQuality = format === 'mp4-1080' || format === 'mp4-4k';
+
+    if (!isHighQuality) {
+      const COBALT_APIS = [
+        'https://cobaltapi.kittycat.boo/',
+        'https://cobaltapi.cjs.nz/'
+      ];
+
+      // Construct cobalt options
+      const cobaltOptions = {
+        url: url,
+        filenameStyle: 'basic'
+      };
+
+      if (format === 'mp4-360') {
+        cobaltOptions.videoQuality = '360';
+      } else if (format === 'mp4-720') {
+        cobaltOptions.videoQuality = '720';
+      } else if (format === 'mp4-best') {
+        cobaltOptions.videoQuality = 'max';
+      } else if (format === 'mp3-128') {
+        cobaltOptions.downloadMode = 'audio';
+        cobaltOptions.audioFormat = 'mp3';
+        cobaltOptions.audioBitrate = '128';
+      } else if (format === 'mp3-320') {
+        cobaltOptions.downloadMode = 'audio';
+        cobaltOptions.audioFormat = 'mp3';
+        cobaltOptions.audioBitrate = '320';
+      } else if (format === 'm4a') {
+        cobaltOptions.downloadMode = 'audio';
+        cobaltOptions.audioFormat = 'best';
+      }
+
+      for (const api of COBALT_APIS) {
         try {
           console.log(`Attempting Cobalt download on instance: ${api}`);
           const res = await fetch(api, {
@@ -488,19 +497,20 @@ async function downloadMedia(url, format, fileUuid) {
               'Accept': 'application/json',
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(cobaltOptions)
+            body: JSON.stringify(cobaltOptions),
+            signal: activeDownloads.get(fileUuid)?.abortController?.signal
           });
-          
+
           if (res.ok) {
             const data = await res.json();
             if (data.status === 'tunnel' || data.status === 'redirect') {
               const downloadUrl = data.url;
               console.log(`Downloading media from Cobalt tunnel: ${downloadUrl}`);
-              const fileRes = await fetch(downloadUrl);
+              const fileRes = await fetch(downloadUrl, { signal: activeDownloads.get(fileUuid)?.abortController?.signal });
               if (!fileRes.ok) {
                 throw new Error(`Failed to fetch media file: HTTP ${fileRes.status}`);
               }
-              
+
               const buffer = Buffer.from(await fileRes.arrayBuffer());
               let ext = 'mp4';
               if (data.filename) {
@@ -513,11 +523,11 @@ async function downloadMedia(url, format, fileUuid) {
               } else if (format === 'm4a') {
                 ext = 'm4a';
               }
-              
+
               const finalFilename = `${fileUuid}.${ext}`;
               const finalFilePath = path.join(downloadsDir, finalFilename);
               fs.writeFileSync(finalFilePath, buffer);
-              
+
               const stats = fs.statSync(finalFilePath);
               return {
                 filePath: finalFilePath,
@@ -535,6 +545,7 @@ async function downloadMedia(url, format, fileUuid) {
         }
       }
     }
+  }
 
   // Fallback to local yt-dlp execution
   console.log('Bypassing/Failed primary download service. Falling back to local yt-dlp execution...');
@@ -544,7 +555,7 @@ async function downloadMedia(url, format, fileUuid) {
   ];
 
   let ext = 'mp4';
-  
+
   if (format === 'mp4-360') {
     args.push('-f', 'bestvideo[height<=360]+bestaudio/best[height<=360]/best');
     args.push('--merge-output-format', 'mp4');
@@ -577,8 +588,8 @@ async function downloadMedia(url, format, fileUuid) {
   }
 
   try {
-    const result = await executeYtDlp(args);
-    
+    const result = await executeYtDlp(args, fileUuid);
+
     if (result.code !== 0) {
       if (isAuthRequiredError(result.stderr)) {
         throw new Error('This content requires authentication or cookies.');
@@ -604,7 +615,7 @@ async function downloadMedia(url, format, fileUuid) {
 
     // Get final file details
     const stats = fs.statSync(finalFilePath);
-    
+
     return {
       filePath: finalFilePath,
       filename: finalFilename,
@@ -622,12 +633,47 @@ async function downloadMedia(url, format, fileUuid) {
     } catch (cleanupErr) {
       console.error('Failed to clean up temp files:', cleanupErr);
     }
-    
+
     throw error;
   }
+  } finally {
+    activeDownloads.delete(fileUuid);
+  }
+}
+
+/**
+ * Cancels an active download process or fetch request by download ID.
+ * @param {string} fileUuid - The UUID of the download
+ * @returns {boolean} True if found and cancelled, false otherwise
+ */
+function cancelDownload(fileUuid) {
+  const active = activeDownloads.get(fileUuid);
+  if (active) {
+    console.log(`[ytDlpService] Cancelling active download: ${fileUuid}`);
+    if (active.process) {
+      try {
+        active.process.kill('SIGKILL');
+        console.log(`[ytDlpService] Successfully killed yt-dlp child process for ${fileUuid}`);
+      } catch (err) {
+        console.error(`Failed to kill process for ${fileUuid}:`, err);
+      }
+    }
+    if (active.abortController) {
+      try {
+        active.abortController.abort();
+        console.log(`[ytDlpService] Successfully aborted fetch request for ${fileUuid}`);
+      } catch (err) {
+        console.error(`Failed to abort fetch for ${fileUuid}:`, err);
+      }
+    }
+    activeDownloads.delete(fileUuid);
+    return true;
+  }
+  return false;
 }
 
 module.exports = {
   fetchMetadata,
-  downloadMedia
+  downloadMedia,
+  cancelDownload
 };
