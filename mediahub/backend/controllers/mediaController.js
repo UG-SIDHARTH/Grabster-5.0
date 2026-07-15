@@ -67,7 +67,7 @@ async function download(req, res) {
   const downloadId = uuidv4();
   let isFinished = false;
 
-  req.on('close', () => {
+  res.on('close', () => {
     if (!isFinished) {
       console.log(`[Media Controller] Client disconnected for download ${downloadId}. Aborting.`);
       const cancelledInQueue = downloadQueue.cancel(downloadId);
@@ -83,7 +83,7 @@ async function download(req, res) {
     // Queue the download to respect concurrency limits
     const result = await downloadQueue.run(async () => {
       // If client already aborted while waiting in the queue
-      if (req.destroyed) {
+      if (res.destroyed) {
         throw new Error('Connection closed before task started execution.');
       }
 
