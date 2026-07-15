@@ -47,6 +47,10 @@ async function getInfo(req, res) {
  * Handles POST /api/download
  */
 async function download(req, res) {
+  // Set request and response timeouts to 10 minutes for this long-running media download
+  req.setTimeout(10 * 60 * 1000);
+  res.setTimeout(10 * 60 * 1000);
+
   const { url, format } = req.body;
 
   if (!isValidUrl(url)) {
