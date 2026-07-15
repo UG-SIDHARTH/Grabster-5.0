@@ -445,41 +445,41 @@ async function downloadMedia(url, format, fileUuid) {
     }
   } else {
     // Non-Instagram Cobalt strategy
-    // Skip Cobalt for 1080p and 4K because public Cobalt instances limit resolution to 720p max
-    const isHighQuality = format === 'mp4-1080' || format === 'mp4-4k';
+    const COBALT_APIS = [
+      'https://cobaltapi.kittycat.boo/',
+      'https://cobaltapi.cjs.nz/'
+    ];
     
-    if (!isHighQuality) {
-      const COBALT_APIS = [
-        'https://cobaltapi.kittycat.boo/',
-        'https://cobaltapi.cjs.nz/'
-      ];
-      
-      // Construct cobalt options
-      const cobaltOptions = {
-        url: url,
-        filenameStyle: 'basic'
-      };
-      
-      if (format === 'mp4-360') {
-        cobaltOptions.videoQuality = '360';
-      } else if (format === 'mp4-720') {
-        cobaltOptions.videoQuality = '720';
-      } else if (format === 'mp4-best') {
-        cobaltOptions.videoQuality = 'max';
-      } else if (format === 'mp3-128') {
-        cobaltOptions.downloadMode = 'audio';
-        cobaltOptions.audioFormat = 'mp3';
-        cobaltOptions.audioBitrate = '128';
-      } else if (format === 'mp3-320') {
-        cobaltOptions.downloadMode = 'audio';
-        cobaltOptions.audioFormat = 'mp3';
-        cobaltOptions.audioBitrate = '320';
-      } else if (format === 'm4a') {
-        cobaltOptions.downloadMode = 'audio';
-        cobaltOptions.audioFormat = 'best';
-      }
-      
-      for (const api of COBALT_APIS) {
+    // Construct cobalt options
+    const cobaltOptions = {
+      url: url,
+      filenameStyle: 'basic'
+    };
+    
+    if (format === 'mp4-360') {
+      cobaltOptions.videoQuality = '360';
+    } else if (format === 'mp4-720') {
+      cobaltOptions.videoQuality = '720';
+    } else if (format === 'mp4-1080') {
+      cobaltOptions.videoQuality = '1080';
+    } else if (format === 'mp4-4k') {
+      cobaltOptions.videoQuality = '2160';
+    } else if (format === 'mp4-best') {
+      cobaltOptions.videoQuality = 'max';
+    } else if (format === 'mp3-128') {
+      cobaltOptions.downloadMode = 'audio';
+      cobaltOptions.audioFormat = 'mp3';
+      cobaltOptions.audioBitrate = '128';
+    } else if (format === 'mp3-320') {
+      cobaltOptions.downloadMode = 'audio';
+      cobaltOptions.audioFormat = 'mp3';
+      cobaltOptions.audioBitrate = '320';
+    } else if (format === 'm4a') {
+      cobaltOptions.downloadMode = 'audio';
+      cobaltOptions.audioFormat = 'best';
+    }
+    
+    for (const api of COBALT_APIS) {
         try {
           console.log(`Attempting Cobalt download on instance: ${api}`);
           const res = await fetch(api, {
@@ -535,7 +535,6 @@ async function downloadMedia(url, format, fileUuid) {
         }
       }
     }
-  }
 
   // Fallback to local yt-dlp execution
   console.log('Bypassing/Failed primary download service. Falling back to local yt-dlp execution...');
