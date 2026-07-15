@@ -77,6 +77,24 @@ function cleanupOldFiles() {
       console.error('[Cleanup Service] Error scanning temp directory:', dirErr);
     }
   }
+
+  // 3. Self-healing check: Expire history entries if files are missing from disk
+  try {
+    const history = historyService.getHistory();
+    let updated = false;
+    history.forEach(item => {
+      if (item.filename && item.status !== 'expired') {
+        const filePath = path.join(downloadsDir, item.filename);
+        if (!fs.existsSync(filePath)) {
+          console.log(`[Cleanup Service] Self-healing: file ${item.filename} is missing from disk. Expiring history entry.`);
+          historyService.expireHistoryItemByFilename(item.filename);
+          updated = true;
+        }
+      }
+    });
+  } catch (historyErr) {
+    console.error('[Cleanup Service] Error during history self-healing:', historyErr);
+  }
 }
 
 /**

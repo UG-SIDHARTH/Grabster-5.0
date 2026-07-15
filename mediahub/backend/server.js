@@ -99,8 +99,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Novara backend listening at http://localhost:${PORT}`);
   // Start periodic cleanup of files older than 1 hour
   cleanupService.startCleanupInterval();
 });
+
+// Set server timeouts to 10 minutes to support large downloads
+server.timeout = 10 * 60 * 1000;
+server.keepAliveTimeout = 10 * 60 * 1000;
+server.headersTimeout = 10 * 60 * 1000 + 5000; // Must be slightly larger than keepAliveTimeout
