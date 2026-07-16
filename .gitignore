@@ -1,0 +1,13 @@
+# Media files
+mediahub/backend/temp/*.mp4
+mediahub/backend/downloads/*
+!mediahub/backend/downloads/.gitkeep
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE configurations (except .vscode settings they committed)
+.idea/
+.DS_Store
