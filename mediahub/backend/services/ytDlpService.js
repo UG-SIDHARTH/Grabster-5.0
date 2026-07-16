@@ -511,7 +511,6 @@ async function downloadMedia(url, format, fileUuid) {
                 throw new Error(`Failed to fetch media file: HTTP ${fileRes.status}`);
               }
 
-              const buffer = Buffer.from(await fileRes.arrayBuffer());
               let ext = 'mp4';
               if (data.filename) {
                 const parts = data.filename.split('.');
@@ -526,7 +525,12 @@ async function downloadMedia(url, format, fileUuid) {
 
               const finalFilename = `${fileUuid}.${ext}`;
               const finalFilePath = path.join(downloadsDir, finalFilename);
-              fs.writeFileSync(finalFilePath, buffer);
+
+              // Stream response body directly to disk instead of buffering in memory
+              const { finished } = require('stream/promises');
+              const { Readable } = require('stream');
+              const fileStream = fs.createWriteStream(finalFilePath);
+              await finished(Readable.fromWeb(fileRes.body).pipe(fileStream));
 
               const stats = fs.statSync(finalFilePath);
               return {
